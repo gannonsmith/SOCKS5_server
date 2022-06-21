@@ -77,4 +77,9 @@ fn dest_connection(dest_addr: Cow<str>) {
 fn handle_dest_connection(mut dest_stream: TcpStream) {
     let mut buffer = [0; 1024];
 
+    //request something from dest_serve
+
+    'reading_dest: while match dest_stream.read(&mut buffer) {
+
+    }
 }
