@@ -5,18 +5,6 @@ use std::io::prelude::*;
 use std::io::Split;
 use std::net::{Shutdown, TcpListener, TcpStream};
 
-struct Server {
-    server: TcpListener,
-    next_token: usize,
-    clients: HashMap<Token, Client>
-}
-
-struct Client {
-    stream: TcpStream,
-    state: State,
-    token: Token
-}
-
 // function arguments:
 // cargo run
 fn main() {
@@ -59,16 +47,16 @@ fn handle_client_connection(mut client_stream: TcpStream) {
     match client_stream.read(&mut buffer) {
         Ok(_) => {
             let message = String::from_utf8_lossy(&buffer[..]);
-            dest_connection(client_stream, message[1]);
+            dest_connection(client_stream, message);
         },
         Err(_) => {
             println!("An error occurred, terminating connection with {}", client_stream.peer_addr().unwrap());
-            stream.shutdown(Shutdown::Both).expect("Shutdown failed...");
+            client_stream.shutdown(Shutdown::Both).expect("Shutdown failed...");
         }
     } {}
 }
 
-fn dest_connection(client_stream: TcpStream, dest_addr: &str) {
+fn dest_connection(mut client_stream: TcpStream, dest_addr: Cow<str>) {
     if let Ok(dest_stream) = TcpStream::connect(dest_addr) {
         println!("Connected to dest addr {}", dest_addr);
         handle_dest_connection(client_stream, dest_stream);
@@ -77,17 +65,31 @@ fn dest_connection(client_stream: TcpStream, dest_addr: &str) {
     }
 }
 
-fn handle_dest_connection(client_stream: TcpStream, mut dest_stream: TcpStream) {
-    let mut buffer = [0; 1024];
+fn handle_dest_connection(mut client_stream: TcpStream, mut dest_stream: TcpStream) {
+    let mut dest_buffer = [0; 1024];
+    let mut client_buffer = [0; 1024];
 
     //request something from dest_server
+    client_stream.write("Enter message\n".as_bytes()).unwrap();
 
-    'reading_dest: while match dest_stream.read(&mut buffer) {
+
+    thread::spawn(|| {
+        while match client_stream.read(&mut client_buffer) {
+            Ok(_) => {
+                dest_stream.write(&mut client_buffer).unwrap();
+            },
+            Err(e) => {
+                println!("Error {} occurred...", e);
+            }
+        } {}
+    });
+
+    while match dest_stream.read(&mut dest_buffer) {
         Ok(_) => {
-            let message = String::from_utf8_lossy(&buffer[..]);
+            client_stream.write(&mut dest_buffer).unwrap();
         },
         Err(e) => {
             println!("Error {} occurred...", e);
         }
-    }
+    }{}
 }
