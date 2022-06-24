@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::io::prelude::*;
 use std::io::Split;
 use std::net::{Shutdown, TcpListener, TcpStream};
+use std::time::Duration;
 
 // function arguments:
 // cargo run
@@ -47,7 +48,7 @@ fn handle_client_connection(mut client_stream: TcpStream) {
     match client_stream.read(&mut buffer) {
         Ok(_) => {
             let message = String::from_utf8_lossy(&buffer[..]);
-            dest_connection(client_stream, message);
+            dest_connection(client_stream, &message[..]);
         },
         Err(_) => {
             println!("An error occurred, terminating connection with {}", client_stream.peer_addr().unwrap());
@@ -56,7 +57,7 @@ fn handle_client_connection(mut client_stream: TcpStream) {
     } {}
 }
 
-fn dest_connection(mut client_stream: TcpStream, dest_addr: Cow<str>) {
+fn dest_connection(mut client_stream: TcpStream, dest_addr: &str) {
     if let Ok(dest_stream) = TcpStream::connect(dest_addr) {
         println!("Connected to dest addr {}", dest_addr);
         handle_dest_connection(client_stream, dest_stream);
@@ -73,23 +74,37 @@ fn handle_dest_connection(mut client_stream: TcpStream, mut dest_stream: TcpStre
     client_stream.write("Enter message\n".as_bytes()).unwrap();
 
 
+    let mut match clone_dest = dest_stream.try_clone();
+    let mut clone_client = client_stream.try_clone();
     thread::spawn(|| {
-        while match client_stream.read(&mut client_buffer) {
-            Ok(_) => {
+        'client: while match client_stream.read(&mut client_buffer) {
+            Ok(_size) => {
+                if client_buffer == "end\n".as_bytes() {
+                    break 'client;
+                }
                 dest_stream.write(&mut client_buffer).unwrap();
+                thread::sleep(Duration::from_millis(1));
+                true
             },
             Err(e) => {
                 println!("Error {} occurred...", e);
+                break 'client;
             }
         } {}
     });
 
-    while match dest_stream.read(&mut dest_buffer) {
-        Ok(_) => {
-            client_stream.write(&mut dest_buffer).unwrap();
+    'dest: while match clone_dest.read(&mut dest_buffer) {
+        Ok(_size) => {
+            if dest_buffer == "end\n".as_bytes() {
+                break 'dest;
+            }
+            clone_client.write(&mut dest_buffer).unwrap();
+            thread::sleep(Duration::from_millis(1));
+            true
         },
         Err(e) => {
             println!("Error {} occurred...", e);
+            break 'dest;
         }
-    }{}
+    } {}
 }
