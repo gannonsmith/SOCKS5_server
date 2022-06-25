@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-use std::{env, thread};
-use std::borrow::Cow;
+use std::thread;
 use std::io::prelude::*;
-use std::io::Split;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::time::Duration;
 
@@ -57,7 +54,7 @@ fn handle_client_connection(mut client_stream: TcpStream) {
     } {}
 }
 
-fn dest_connection(mut client_stream: TcpStream, dest_addr: &str) {
+fn dest_connection(client_stream: TcpStream, dest_addr: &str) {
     if let Ok(dest_stream) = TcpStream::connect(dest_addr) {
         println!("Connected to dest addr {}", dest_addr);
         handle_dest_connection(client_stream, dest_stream);
@@ -77,7 +74,7 @@ fn handle_dest_connection(mut client_stream: TcpStream, mut dest_stream: TcpStre
     let mut clone_dest = dest_stream.try_clone().unwrap();
     let mut clone_client = client_stream.try_clone().unwrap();
 
-    thread::spawn(|| {
+    thread::spawn(move || {
         'client: while match client_stream.read(&mut client_buffer) {
             Ok(_size) => {
                 if client_buffer == "end\n".as_bytes() {
