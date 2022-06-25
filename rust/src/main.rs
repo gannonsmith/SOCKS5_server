@@ -74,7 +74,14 @@ fn handle_dest_connection(mut client_stream: TcpStream, mut dest_stream: TcpStre
     client_stream.write("Enter message\n".as_bytes()).unwrap();
 
 
-    let mut match clone_dest = dest_stream.try_clone();
+    let match dest_stream.try_clone(){
+        Ok(_) => {
+
+        },
+        Err(e) => {
+            println!("Error cloning {}",e);
+        }
+    }
     let mut clone_client = client_stream.try_clone();
     thread::spawn(|| {
         'client: while match client_stream.read(&mut client_buffer) {
