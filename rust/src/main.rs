@@ -40,17 +40,8 @@ mod addr_type {
 
 
 fn main() {
-    println!("Hello, world!");
-
-
-    /*
-    Determine TCP or UDP
-     */
-
-    // pass address to our boys in the back
     let address = "127.0.0.1:8200";
     tcp_listener(address);
-    println!("Shutting down server listener");
 }
 
 fn tcp_listener(address: &str) {
@@ -93,7 +84,6 @@ fn handle_connection(mut client_stream: TcpStream) {
 
     println!("Received connection request from {:?}", client_stream);
 
-
     // read [Ver: 0x05] [CMD: 0x01] [RSV: 0x00] [ATYP] [DST.ADDR] [DST.PORT]
     if client_stream.read(&mut nmethods_buffer).is_err() {
         println!("Error with reading first two bytes in request.");
@@ -104,7 +94,6 @@ fn handle_connection(mut client_stream: TcpStream) {
     if nmethods_buffer[0] != SOCKS5VER {
         println!("Error with unsupported protocol.");
         return;
-        //Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
     }
 
 
@@ -116,13 +105,11 @@ fn handle_connection(mut client_stream: TcpStream) {
         return;
     }
 
-    //is 0x00 a method available
     let mut iter = methods_vec.iter();
     if iter.find(|&&x| x == (Methods::NoAuthenticationRequired as u8)).is_none() {
         println!("Does not support methods");
         return;
     }
-
 
     if client_stream.write(&[SOCKS5VER, Methods::NoAuthenticationRequired as u8]).is_err() {
         println!("Issue reading stream.");
@@ -140,7 +127,6 @@ fn handle_connection(mut client_stream: TcpStream) {
     if buffer[0] != SOCKS5VER {
         println!("Error with unsupported protocol.");
         return;
-        //Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Only socks5 protocol is supported!"));
     }
 
     //UDP ASSOCIATE and BIND are not supported.
@@ -199,13 +185,6 @@ fn handle_connection(mut client_stream: TcpStream) {
     };
 
 
-    // connection succeeded
-    // +----+-----+-------+------+----------+----------+
-    // |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-    // +----+-----+-------+------+----------+----------+
-    // | 1  |  1  | X'00' |  1   | Variable |    2     |
-    // +----+-----+-------+------+----------+----------+
-
     if client_stream.write(&[SOCKS5VER, ReplyCode::Succeeded as u8, RESERVED, addr_type::IPV4, 0, 0, 0, 0, 0, 0]).is_err() {
         println!("Could not write to stream.");
         return;
@@ -242,14 +221,10 @@ fn handle_connection(mut client_stream: TcpStream) {
 fn ipv4_connection(buffer: &mut [u8; 7]) -> Result<TcpStream, ReplyCode> {
     println!("Opening IPV4 Connection");
 
-    //IPV4 requires u8 by 4, an empty vector is initialized using default and the IP address is sliced in from derefencing buffer for 4 u8s. The IPv4Addr is assigned.
-    // let mut address_array: [u8; 4] = Default::default();
-    // address_array.copy_from_slice(buffer[4]);
-
     let socket_v4 = SocketAddrV4::new(Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]), u16::from_be_bytes([buffer[4], buffer[5]]));
     TcpStream::connect(socket_v4).map_err(| _ | ReplyCode::NetworkUnreachable)
 }
-//result address type, socksreplycode
+
 fn ipv6_connection(buffer: &mut [u8; 13]) -> Result<TcpStream, ReplyCode> {
     println!("Opening IPV6 Connection");
 
